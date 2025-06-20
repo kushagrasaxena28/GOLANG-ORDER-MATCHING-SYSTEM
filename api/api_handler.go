@@ -9,6 +9,7 @@ import (
 	"golang-order-matching-system/db"
 	"golang-order-matching-system/engine"
 	"golang-order-matching-system/models"
+	"golang-order-matching-system/utils"
 	"github.com/gorilla/mux"
 	"time"
 )
@@ -29,26 +30,26 @@ func SetupRoutes(r *mux.Router) {
 func CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var order models.Order
 	if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
 	// Enhanced input validation
 	if order.Symbol == "" {
-		http.Error(w, "Symbol is required", http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Symbol is required")
 		return
 	}
 	if order.Quantity <= 0 {
-		http.Error(w, "Quantity must be greater than 0", http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Quantity must be greater than 0")
 		return
 	}
 	if order.Type == "limit" {
 		if order.Price == nil {
-			http.Error(w, "Price is required for limit orders", http.StatusBadRequest)
+			utils.JSONErrorResponse(w, http.StatusBadRequest, "Price is required for limit orders")
 			return
 		}
 		if *order.Price <= 0 {
-			http.Error(w, "Price must be greater than 0 for limit orders", http.StatusBadRequest)
+			utils.JSONErrorResponse(w, http.StatusBadRequest, "Price must be greater than 0 for limit orders")
 			return
 		}
 	}
@@ -63,7 +64,7 @@ func CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := orderBook.MatchOrders(&order); err != nil {
-		http.Error(w, "Failed to process order", http.StatusInternalServerError)
+		utils.JSONErrorResponse(w, http.StatusInternalServerError, "Failed to process order")
 		return
 	}
 
@@ -77,26 +78,26 @@ func CancelOrder(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid order ID", http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Invalid order ID")
 		return
 	}
 
 	order, err := db.GetOrderByID(orderID)
 	if err != nil {
-		http.Error(w, "Failed to retrieve order", http.StatusInternalServerError)
+		utils.JSONErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve order")
 		return
 	}
 	if order == nil {
-		http.Error(w, "Order not found", http.StatusNotFound)
+		utils.JSONErrorResponse(w, http.StatusNotFound, "Order not found")
 		return
 	}
 	if order.Status == "filled" || order.Status == "canceled" {
-		http.Error(w, "Order cannot be canceled, status is "+order.Status, http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Order cannot be canceled, status is "+order.Status)
 		return
 	}
 
 	if err := db.CancelOrder(orderID); err != nil {
-		http.Error(w, "Failed to cancel order", http.StatusInternalServerError)
+		utils.JSONErrorResponse(w, http.StatusInternalServerError, "Failed to cancel order")
 		return
 	}
 
@@ -107,7 +108,7 @@ func CancelOrder(w http.ResponseWriter, r *http.Request) {
 func GetOrderBook(w http.ResponseWriter, r *http.Request) {
 	symbol := r.URL.Query().Get("symbol")
 	if symbol == "" {
-		http.Error(w, "Symbol is required", http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Symbol is required")
 		return
 	}
 
@@ -116,7 +117,7 @@ func GetOrderBook(w http.ResponseWriter, r *http.Request) {
 
 	orders, err := db.GetOrderBook(symbol, full)
 	if err != nil {
-		http.Error(w, "Failed to get order book", http.StatusInternalServerError)
+		utils.JSONErrorResponse(w, http.StatusInternalServerError, "Failed to get order book")
 		return
 	}
 
@@ -152,7 +153,7 @@ func GetTrades(w http.ResponseWriter, r *http.Request) {
 
 	trades, err := db.GetTrades(symbol)
 	if err != nil {
-		http.Error(w, "Failed to get trades", http.StatusInternalServerError)
+		utils.JSONErrorResponse(w, http.StatusInternalServerError, "Failed to get trades")
 		return
 	}
 
@@ -166,7 +167,7 @@ func UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid order ID", http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Invalid order ID")
 		return
 	}
 
@@ -175,30 +176,30 @@ func UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 		RemainingQuantity int    `json:"remaining_quantity"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
 	order, err := db.GetOrderByID(orderID)
 	if err != nil {
-		http.Error(w, "Failed to retrieve order", http.StatusInternalServerError)
+		utils.JSONErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve order")
 		return
 	}
 	if order == nil {
-		http.Error(w, "Order not found", http.StatusNotFound)
+		utils.JSONErrorResponse(w, http.StatusNotFound, "Order not found")
 		return
 	}
 
 	// Validate status
 	validStatuses := map[string]bool{"open": true, "partially_filled": true, "filled": true, "canceled": true}
 	if !validStatuses[req.Status] {
-		http.Error(w, fmt.Sprintf("Invalid status: %s, must be one of open, partially_filled, filled, canceled", req.Status), http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid status: %s, must be one of open, partially_filled, filled, canceled", req.Status))
 		return
 	}
 
 	// Validate remaining quantity
 	if req.RemainingQuantity < 0 || req.RemainingQuantity > order.Quantity {
-		http.Error(w, fmt.Sprintf("Invalid remaining_quantity: %d, must be between 0 and original quantity %d", req.RemainingQuantity, order.Quantity), http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid remaining_quantity: %d, must be between 0 and original quantity %d", req.RemainingQuantity, order.Quantity))
 		return
 	}
 
@@ -212,7 +213,7 @@ func UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Check if the transition is valid
 	if !validTransitions[order.Status][req.Status] {
-		http.Error(w, fmt.Sprintf("Invalid state transition: %s cannot transition to %s", order.Status, req.Status), http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid state transition: %s cannot transition to %s", order.Status, req.Status))
 		return
 	}
 
@@ -220,22 +221,22 @@ func UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 	switch req.Status {
 	case "filled":
 		if req.RemainingQuantity != 0 {
-			http.Error(w, "filled status requires remaining_quantity to be 0", http.StatusBadRequest)
+			utils.JSONErrorResponse(w, http.StatusBadRequest, "filled status requires remaining_quantity to be 0")
 			return
 		}
 	case "open", "partially_filled":
 		if req.RemainingQuantity == 0 {
-			http.Error(w, fmt.Sprintf("%s status requires remaining_quantity greater than 0", req.Status), http.StatusBadRequest)
+			utils.JSONErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("%s status requires remaining_quantity greater than 0", req.Status))
 			return
 		}
 	}
 
 	if err := db.UpdateOrderStatus(orderID, req.Status, req.RemainingQuantity); err != nil {
 		if err == sql.ErrNoRows {
-			http.Error(w, "Order not found", http.StatusNotFound)
+			utils.JSONErrorResponse(w, http.StatusNotFound, "Order not found")
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.JSONErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -247,17 +248,17 @@ func GetOrder(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid order ID", http.StatusBadRequest)
+		utils.JSONErrorResponse(w, http.StatusBadRequest, "Invalid order ID")
 		return
 	}
 
 	order, err := db.GetOrderByID(orderID)
 	if err != nil {
-		http.Error(w, "Failed to retrieve order", http.StatusInternalServerError)
+		utils.JSONErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve order")
 		return
 	}
 	if order == nil {
-		http.Error(w, "Order not found", http.StatusNotFound)
+		utils.JSONErrorResponse(w, http.StatusNotFound, "Order not found")
 		return
 	}
 

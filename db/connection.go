@@ -7,16 +7,16 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
 )
 
+var DB *sql.DB
 
 // InitDB initializes the database connection
 func InitDB() error {
-	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("No .env file found, using system env vars")
+	// Check if DB is already initialized
+	if DB != nil {
+		log.Println("Database already initialized")
+		return nil
 	}
 
 	// Get database URL from environment
@@ -27,6 +27,7 @@ func InitDB() error {
 	}
 
 	// Open database connection
+	var err error
 	DB, err = sql.Open("mysql", dbURL)
 	if err != nil {
 		log.Printf("Failed to open database: %v", err)
@@ -52,6 +53,7 @@ func CloseDB() {
 			log.Printf("Failed to close database: %v", err)
 		} else {
 			log.Println("Database connection closed")
+			DB = nil // Reset DB to nil after closing
 		}
 	}
 }

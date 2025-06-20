@@ -19,16 +19,12 @@ This is a Go-based order matching system developed for an assignment. It support
      ```
    - This script:
      - Creates the `order_matching` database and tables using `schema.sql`.
-     - Sets up the `kushagra` user.
+     - Sets up the `kushagra` user (configured in `.env`).
      - Installs Go dependencies and starts the server.
-   - Enter your MySQL root password when prompted.
+   - The script reads the MySQL password from `.env`.
 
 2. **Start the Application**:
-   - After setup, run:
-     ```bash
-     go run main.go
-     ```
-   - The server starts on port 8080 (or the port from `.env`).
+   - After setup, the server starts automatically on the port specified in `.env` (default: 8080).
 
 3. **Test the API**:
    - Use a tool like `curl` or Postman:
@@ -36,8 +32,8 @@ This is a Go-based order matching system developed for an assignment. It support
      - Get order book: `curl http://localhost:8080/orderbook?symbol=AAPL&full=true`
 
 ### Notes
-- The `.env` file contains the database connection string and port. The setup script will prompt for your MySQL root password.
-- If the setup script fails, manually run `mysql -u root -p < scripts/schema.sql` and adjust `.env`.
+- The `.env` file contains the database connection string and port. Update `MYSQL_PASSWORD` with a secure password.
+- If the setup script fails, manually run `mysql -u kushagra -p < scripts/schema.sql` and adjust `.env`.
 
 ## Additional Features Beyond the Assignment
 - **Order Book Endpoint**: Added `GET /orderbook` to view current bids and asks.

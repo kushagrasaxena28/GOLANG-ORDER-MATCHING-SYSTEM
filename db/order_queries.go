@@ -8,6 +8,7 @@ import (
 	"golang-order-matching-system/models"
 )
 
+
 // CreateOrderTx inserts a new order within a transaction
 func CreateOrderTx(order *models.Order, tx *sql.Tx) error {
 	query := `
@@ -43,26 +44,36 @@ func UpdateOrderTx(order *models.Order, tx *sql.Tx) error {
 		SET remaining_quantity = ?, status = ?, updated_at = ?
 		WHERE id = ?`
 
-	var execFn func(string, ...any) (sql.Result, error)
-
-	if tx != nil {
-		execFn = tx.Exec
-	} else {
-		execFn = DB.Exec
+	// Add fallback for non-transactional usage with nil check for DB
+	if tx == nil {
+		if DB == nil {
+			log.Printf("Database connection is nil")
+			return fmt.Errorf("database connection is nil")
+		}
+		_, err := DB.Exec(query,
+			order.RemainingQuantity,
+			order.Status,
+			order.UpdatedAt,
+			order.ID)
+		if err != nil {
+			log.Printf("Failed to update order (non-tx): %v", err)
+			return err
+		}
+		return nil
 	}
 
-	_, err := execFn(query,
+	// If tx is provided, use it
+	_, err := tx.Exec(query,
 		order.RemainingQuantity,
 		order.Status,
 		order.UpdatedAt,
 		order.ID)
 	if err != nil {
-		log.Printf("Failed to update order: %v", err)
+		log.Printf("Failed to update order (tx): %v", err)
 		return err
 	}
 	return nil
 }
-
 
 // GetOrderByID retrieves an order by its ID
 func GetOrderByID(orderID int64) (*models.Order, error) {

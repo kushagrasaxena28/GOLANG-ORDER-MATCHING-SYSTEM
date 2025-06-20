@@ -1,73 +1,59 @@
 # Test Cases for Order Matching System
 
 ## Overview
-This document contains test cases for the Go-based order matching system developed as part of the assignment. The system handles limit and market orders for a symbol (e.g., AAPL) and includes features for order creation, matching, cancellation, and order book retrieval.
+This document outlines the test cases designed to validate the functionality of the order matching system. Each test case includes a description, steps, expected outcome, and actual outcome (to be filled during testing).
 
 ## Test Cases
 
-### Case 1: Initial Order Creation
-- **Description**: Verify that limit and market orders can be created and persisted.
+### Case 1: Order Creation
+- **Description**: Verify that a new order can be successfully created.
 - **Steps**:
-  1. Send POST `/orders` with `{"symbol":"AAPL","side":"sell","type":"limit","price":100.00,"quantity":5}`.
-  2. Send POST `/orders` with `{"symbol":"AAPL","side":"buy","type":"market","quantity":5}`.
-- **Expected Outcome**:
-  - Responses: 201 Created with `status: open` for limit, `status: open` for market.
-  - Database: Rows in `orders` with matching `symbol`, `side`, `type`, `price`, `quantity`, and `remaining_quantity`.
-- **Status**: Completed (assumed based on system setup).
+  1. Send a POST request to `/orders` with payload: `{"symbol":"AAPL","side":"buy","type":"limit","price":100.00,"quantity":10}`.
+  2. Check the response for a 201 status and the order ID.
+- **Expected Outcome**: Order is created with status "open" and remaining_quantity = 10.
+- **Actual Outcome**: [To be filled]
 
 ### Case 2: Market Order Matching
-- **Description**: Test a market buy order matching with existing sell limit orders.
+- **Description**: Test matching of a market order with an existing limit order.
 - **Steps**:
-  1. Send POST `/orders` with `{"symbol":"AAPL","side":"sell","type":"limit","price":101.00,"quantity":4}`.
-  2. Send POST `/orders` with `{"symbol":"AAPL","side":"sell","type":"limit","price":102.00,"quantity":3}`.
-  3. Send POST `/orders` with `{"symbol":"AAPL","side":"buy","type":"market","quantity":5}`.
-- **Expected Outcome**:
-  - Sell order (101.00): `status: filled`, `remaining_quantity: 0`.
-  - Sell order (102.00): `status: partially_filled`, `remaining_quantity: 2`.
-  - Market order: `status: filled`, `remaining_quantity: 0`.
-  - Trades: 4 units at 101.00, 1 unit at 102.00.
-  - Order book: Reflects remaining 2 units at 102.00.
-- **Status**: Completed (validated with IDs 41-43).
+  1. Create a limit order: `{"symbol":"AAPL","side":"sell","type":"limit","price":100.00,"quantity":5}`.
+  2. Send a market order: `{"symbol":"AAPL","side":"buy","type":"market","quantity":5}`.
+  3. Check the order book and trades.
+- **Expected Outcome**: Both orders are filled, a trade is logged with price 100.00 and quantity 5.
+- **Actual Outcome**: [To be filled]
 
 ### Case 3: Limit Order Cancellation
-- **Description**: Test cancellation of an open limit order.
+- **Description**: Verify that an open limit order can be canceled.
 - **Steps**:
-  1. Send POST `/orders` with `{"symbol":"AAPL","side":"sell","type":"limit","price":103.00,"quantity":2}`.
-  2. Send DELETE `/orders/{id}` with the created order ID.
-- **Expected Outcome**:
-  - Response: 200 OK with `status: canceled`.
-  - Database: Order updated to `status: canceled`.
-  - Order book: Order removed from asks.
-- **Status**: Completed (assumed based on Case 6).
+  1. Create a limit order: `{"symbol":"AAPL","side":"buy","type":"limit","price":100.00,"quantity":10}`.
+  2. Send a DELETE request to `/orders/{id}`.
+  3. Check the order status.
+- **Expected Outcome**: Order status changes to "canceled" with a 204 response.
+- **Actual Outcome**: [To be filled]
 
-### Case 4: Partial Order Matching with Limit Orders
-- **Description**: Test a limit buy order partially matching with multiple sell limit orders.
+### Case 4: Partial Matching with Market Orders
+- **Description**: Test partial matching when a market order quantity exceeds an available limit order.
 - **Steps**:
-  1. Send POST `/orders` with `{"symbol":"AAPL","side":"sell","type":"limit","price":102.00,"quantity":3}`.
-  2. Send POST `/orders` with `{"symbol":"AAPL","side":"sell","type":"limit","price":101.00,"quantity":4}`.
-  3. Send POST `/orders` with `{"symbol":"AAPL","side":"buy","type":"limit","price":101.50,"quantity":6}`.
-- **Expected Outcome**:
-  - Sell order (102.00): `status: filled`, `remaining_quantity: 0`.
-  - Sell order (101.00): `status: partially_filled`, `remaining_quantity: 1`.
-  - Buy order: `status: partially_filled`, `remaining_quantity: 0`.
-  - Trades: 3 units at 102.00, 3 units at 101.00.
-  - Order book: Reflects 1 unit at 101.00.
-- **Status**: Completed (validated with IDs 47-49, though matching with 102.00 needs confirmation).
+  1. Create a limit order: `{"symbol":"AAPL","side":"sell","type":"limit","price":100.00,"quantity":3}`.
+  2. Send a market order: `{"symbol":"AAPL","side":"buy","type":"market","quantity":5}`.
+  3. Check the order book and trades.
+- **Expected Outcome**: Limit order is filled, market order remains open with remaining_quantity = 2.
+- **Actual Outcome**: [To be filled]
 
-### Case 5: Concurrent Order Matching
-- **Description**: Test multiple limit orders matching simultaneously.
+### Case 5: Partial Matching with Limit Orders
+- **Description**: Test partial matching between two limit orders.
 - **Steps**:
-  1. Send POST `/orders` with `{"symbol":"AAPL","side":"sell","type":"limit","price":100.00,"quantity":2}`.
-  2. Send POST `/orders` with `{"symbol":"AAPL","side":"sell","type":"limit","price":99.00,"quantity":3}`.
-  3. Send POST `/orders` with `{"symbol":"AAPL","side":"buy","type":"limit","price":100.50,"quantity":4}`.
-  4. Send POST `/orders` with `{"symbol":"AAPL","side":"buy","type":"limit","price":100.50,"quantity":1}`.
-- **Expected Outcome**:
-  - Sell orders: First 2 units filled, next 2 units partially filled.
-  - Buy orders: First 4 units filled, second 1 unit filled.
-  - Trades: 2 units at 100.00, 3 units at 99.00.
-  - Order book: Updated with remaining quantities.
-- **Status**: Not yet tested (proposed for next case).
+  1. Create a buy limit order: `{"symbol":"AAPL","side":"buy","type":"limit","price":101.00,"quantity":10}`.
+  2. Create a sell limit order: `{"symbol":"AAPL","side":"sell","type":"limit","price":100.00,"quantity":4}`.
+  3. Check the order book and trades.
+- **Expected Outcome**: Partial match of 4 units at 100.00, both orders updated with remaining_quantity = 6 and 0 respectively.
+- **Actual Outcome**: [To be filled]
 
-## Notes
-- Test cases assume the system runs on `localhost:8080` with a MySQL database named `order_matching`.
-- All times are in IST (UTC+5:30) as of June 20, 2025.
+### Case 6: Order Cancellation
+- **Description**: Verify cancellation of a partially filled order.
+- **Steps**:
+  1. Follow Case 5 to create a partially filled order.
+  2. Send a DELETE request to `/orders/{id}` for the buy order.
+  3. Check the order status.
+- **Expected Outcome**: Order status changes to "canceled" with a 204 response, remaining_quantity preserved.
+- **Actual Outcome**: [To be filled]
