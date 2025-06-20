@@ -8,8 +8,6 @@ import (
 	"golang-order-matching-system/models"
 )
 
-var DB *sql.DB
-
 // CreateOrderTx inserts a new order within a transaction
 func CreateOrderTx(order *models.Order, tx *sql.Tx) error {
 	query := `
@@ -45,52 +43,26 @@ func UpdateOrderTx(order *models.Order, tx *sql.Tx) error {
 		SET remaining_quantity = ?, status = ?, updated_at = ?
 		WHERE id = ?`
 
-	// 🔒 Add fallback for non-transactional usage
-	if tx == nil {
-		_, err := DB.Exec(query,
-			order.RemainingQuantity,
-			order.Status,
-			order.UpdatedAt,
-			order.ID)
-		if err != nil {
-			log.Printf("Failed to update order (non-tx): %v", err)
-			return err
-		}
-		return nil
+	var execFn func(string, ...any) (sql.Result, error)
+
+	if tx != nil {
+		execFn = tx.Exec
+	} else {
+		execFn = DB.Exec
 	}
 
-	// If tx is provided, use it
-	_, err := tx.Exec(query,
+	_, err := execFn(query,
 		order.RemainingQuantity,
 		order.Status,
 		order.UpdatedAt,
 		order.ID)
 	if err != nil {
-		log.Printf("Failed to update order (tx): %v", err)
+		log.Printf("Failed to update order: %v", err)
 		return err
 	}
 	return nil
 }
 
-
-// CreateTradeTx creates a new trade within a transaction
-func CreateTradeTx(trade *models.Trade, tx *sql.Tx) error {
-	query := `
-		INSERT INTO trades (symbol, buy_order_id, sell_order_id, price, quantity, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)`
-	_, err := tx.Exec(query,
-		trade.Symbol,
-		trade.BuyOrderID,
-		trade.SellOrderID,
-		trade.Price,
-		trade.Quantity,
-		trade.CreatedAt)
-	if err != nil {
-		log.Printf("Failed to create trade: %v", err)
-		return err
-	}
-	return nil
-}
 
 // GetOrderByID retrieves an order by its ID
 func GetOrderByID(orderID int64) (*models.Order, error) {
