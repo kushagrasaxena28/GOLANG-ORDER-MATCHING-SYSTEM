@@ -161,16 +161,22 @@ func UpdateOrderStatus(orderID int64, status string, remainingQuantity int) erro
 
 // CancelOrder updates the order status to "canceled"
 func CancelOrder(orderID int64) error {
-	order, err := GetOrderByID(orderID)
-	if err != nil {
-		return err
-	}
-	if order == nil {
-		return sql.ErrNoRows
-	}
-	order.Status = "canceled"
-	order.UpdatedAt = time.Now()
-	return UpdateOrderTx(order, nil)
+    order, err := GetOrderByID(orderID)
+    if err != nil {
+        return err
+    }
+    if order == nil {
+        return sql.ErrNoRows
+    }
+
+    // Check if the order is not cancellable
+    if order.Status == "filled" || order.Status == "canceled" {
+        return fmt.Errorf("order %d cannot be canceled, status is %s", orderID, order.Status)
+    }
+
+    order.Status = "canceled"
+    order.UpdatedAt = time.Now()
+    return UpdateOrderTx(order, nil)
 }
 
 // GetOrderBook retrieves the current order book for a symbol, optionally with full list
